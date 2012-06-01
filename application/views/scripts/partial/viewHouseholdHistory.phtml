@@ -1,34 +1,23 @@
+
+
 <?php
-$clientId     = $this->escape($this->client->getId());
+//$rowStripeClass = (!(isset($this->i) && $this->i % 2)) ? 'even' : 'odd';
 
-if (isset($this->viewClientUrl)) {
-    $preClientId  = '<a href="' . $this->escape($this->viewClientUrl) . '">';
-    $postClientId =  '</a>';
-} else {
-    $preClientId  = '';
-    $postClientId = '';
-}
-
-if (isset($this->gotoUrl, $this->gotoLabel)) {
-    $gotoBtn = '<a href="'
-             . $this->escape($this->gotoUrl)
-             . '" class="btn btn-mini btn-info">Go to '
-             . $this->escape($this->gotoLabel)
-             . '</a>';
-} else {
-    $gotoBtn = '';
-}
-?>
-<?php if (empty($this->noClientHeader)) { ?>
-<tr class="search-result <?php echo $this->rowStripeClass; ?>">
-    <th class="search-cell top first">Client ID</th>
-    <td class="search-cell top id"><?php echo $preClientId, $clientId, $postClientId; ?></td>
-    <th class="search-cell top">Name</th>
-    <td class="search-cell top name"><?php echo $this->escape($this->client->getFullName()); ?></td>
-    <th class="search-cell top">Phone</th>
-    <td class="search-cell top"><?php echo $this->escape($this->client->getFormattedPhone()); ?></td>
-<?php } ?>
-    <td class="search-cell top last"><?php echo $gotoBtn; ?></td>
-<?php if (empty($this->noClientHeader)) { ?>
-</tr>
-<?php } ?>
+foreach (array_values($this->history) as $i => $history):
+if(get_class($history) !='Application_Model_Impl_Addr'): ?>
+	<tr class="search-result <?php echo $this->rowStripeClass; ?>">
+	    <th colspan=2 class='search-cell top name'>Name</th>
+	    <td class='search-cell top fullname'><?php echo $this->escape($history->getFullName()); ?></td>
+	    <th colspan=2 class='search-cell top name'>Relationship</th>
+	    <td class='search-cell top'><?php echo $this->escape(ucfirst($history->getRelationship())); ?></td>
+	    <th class='search-cell top name'>Birth Date</th>
+	    <td class='search-cell top birthdate'><?php echo $this->escape($history->getBirthDate()); ?></td>
+	    <?php if($history->getDepartDate()):?>
+	    	<th class='search-cell top name'>Departed Date</th>
+	    	<td colspan=1 class='search-cell top leftdate'><?php echo $this->escape($history->getDepartDate()); ?></td>
+	    <?php else:?>
+	    	<td colspan=2 class='search-cell top leftdate'></td>
+	    <?php endif; 
+	    endif; ?>
+	</tr>
+<?php endforeach; ?>

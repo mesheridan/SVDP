@@ -69,7 +69,11 @@ class App_Service_Member
             ->joinLeft(
                 array('d' => 'do_not_help'),
                 'c.client_id = d.client_id',
-                array('do_not_help_reason' => 'd.reason')
+                array(
+                    'do_not_help_user_id' => 'd.create_user_id',
+                    'do_not_help_date' => 'd.added_date',
+                    'do_not_help_reason' => 'd.reason',
+                )
             )
             ->where('h.current_flag = 1')
             ->where('c.client_id = ?', $clientId);
@@ -356,19 +360,25 @@ class App_Service_Member
     }
     
     //Gets all members of past & current households of client
-    //Returns each list of household members as an array of Householder objects,
-    //each list is an element in a two dimensional associative array (ie. [household_id][array of members])
+    //Returns each list of household members as an array of Householder objects with the household address object as the first element.
+    //Each list is an element in a two dimensional associative array (ie. [household_id][array of members])
     public function getClientHouseholdHistory($clientId){
         //Get list of all past & current client households
         $select = $this->_db->select()
                 ->from(array('h' => 'household'), 'household_id')
-                ->where('mainclient_id = ?', $clientId);
+                ->joinLeft(array('a' => 'address'),
+                            'h.address_id = a.address_id')
+                ->where('mainclient_id = ?', $clientId)
+                ->orWhere('spouse_id = ?', $clientId);
         $results = $this->_db->fetchAll($select);
         $arr = array();
+        $temp = array();
         
         //Get all the members in each household
-        foreach($results as $row)
-            $arr[$row['household_id']] = $this->getHouseholdersByHouseholdId($row['household_id']);
+        foreach($results as $row){
+            $arr[$row['household_id']] = $this->getHouseholdersByHouseClientIds($row['household_id'], $clientId);
+            array_unshift($arr[$row['household_id']], $this->buildAddrModel($row));
+        }
         return $arr;
     }
 
@@ -391,7 +401,7 @@ class App_Service_Member
                     'client_id' => $client->getId(),
                     'create_user_id' => $client->getUser()->getUserId(),
                     'added_date' => $client->getCreatedDate(),
-                    'reason' => $client->getDoNotHelpReason(),
+                    'reason' => $client->getDoNotHelp()->getReason(),
                 ));
             }
 
@@ -528,12 +538,14 @@ class App_Service_Member
             );
 
             if ($client->isDoNotHelp()) {
-                // If the client is marked do-not-help, insert do-not-help record.
+                // If the client is marked do-not-help, insert or update do-not-help record.
+                $doNotHelp = $client->getDoNotHelp();
+
                 $this->_db->insert('do_not_help', array(
                     'client_id' => $client->getId(),
-                    'create_user_id' => $client->getUser()->getUserId(),
-                    'added_date' => $client->getCreatedDate(),
-                    'reason' => $client->getDoNotHelpReason(),
+                    'create_user_id' => $doNotHelp->getUser()->getUserId(),
+                    'added_date' => $doNotHelp->getDateAdded(),
+                    'reason' => $doNotHelp->getReason(),
                 ));
             }
 
@@ -858,15 +870,20 @@ class App_Service_Member
         return $results['marriage_status'];
     }
     
-    private function getHouseholdersByHouseholdId($houseId){
+    private function getHouseholdersByHouseClientIds($houseId, $clientId){
         $hMembers = array();
         
-        //Get spouse if exists
+        //Get spouse if exists, need to grab both id's
         $select = $this->_db->select()
-                ->from('household', 'spouse_id')
+                ->from('household', array('mainclient_id', 'spouse_id'))
                 ->where('household_id = ?', $houseId);
         $results = $this->_db->fetchRow($select);
-        if($results['spouse_id']){
+        
+        //If the clientId matches the spouse_id then given client was added as a spouse
+        //need to indicated thier spouse as the main client
+        $spouseId = ($results['spouse_id'] === $clientId) ?
+            $results['mainclient_id'] : $results['spouse_id'];
+        if($spouseId){
             $householder = new Application_Model_Impl_Householder();
             $select = $this->_db->select()
                     ->from(array('c' => 'client'),
@@ -874,7 +891,7 @@ class App_Service_Member
                                  'first_name',
                                  'last_name',
                                  'birthdate'))
-                    ->where('c.client_id = ?', $results['spouse_id']);
+                    ->where('c.client_id = ?', $spouseId);
             $results = $this->_db->fetchRow($select);
             $householder
                 ->setId($results['client_id'])
@@ -1003,6 +1020,19 @@ class App_Service_Member
             ->setFirstName($dbResult['user_first_name'])
             ->setLastName($dbResult['user_last_name']);
 
+        if ($dbResult['do_not_help_reason'] !== null) {
+            $doNotHelpUser = new Application_Model_Impl_User();
+            $doNotHelpUser->setUserId($dbResult['do_not_help_user_id']);
+
+            $doNotHelp = new Application_Model_Impl_DoNotHelp();
+            $doNotHelp
+                ->setUser($doNotHelpUser)
+                ->setDateAdded($dbResult['do_not_help_date'])
+                ->setReason($dbResult['do_not_help_reason']);
+        } else {
+            $doNotHelp = null;
+        }
+
         $client = new Application_Model_Impl_Client();
         $client
             ->setId($dbResult['client_id'])
@@ -1022,7 +1052,7 @@ class App_Service_Member
             ->setSpouse($spouse)
             ->setHouseholdId($dbResult['household_id'])
             ->setCurrentAddr($addr)
-            ->setDoNotHelpReason($dbResult['do_not_help_reason']);
+            ->setDoNotHelp($doNotHelp);
 
         return $client;
     }
@@ -1193,6 +1223,17 @@ class App_Service_Member
             ->setBirthDate($results['birthdate'])
             ->setDepartDate($results['left_date']);
         return $householder;
+    }
+    
+    private function buildAddrModel($results){
+        $addr = new Application_Model_Impl_Addr();
+        $addr
+            ->setId($results['address_id'])
+            ->setStreet($results['street'])
+            ->setCity($results['city'])
+            ->setState($results['state'])
+            ->setZip($results['zipcode']);
+        return $addr;
     }
 
     /****** IMPL OBJECT DISASSEMBLERS  ******/
