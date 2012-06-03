@@ -1,6 +1,6 @@
 <?php
 
-class Application_Model_Member_ClientForm extends Twitter_Bootstrap_Form_Horizontal
+class Application_Model_Migration_ClientForm extends Twitter_Bootstrap_Form_Horizontal
 {
 
     private $_MARRIAGE_OPTIONS = array(
@@ -73,26 +73,19 @@ class Application_Model_Member_ClientForm extends Twitter_Bootstrap_Form_Horizon
             'decorators' => array('ViewHelper'),
         ));
 
-        // General summary elements for clients with existing database entries.
-        if ($id !== null) {
-            $this->addElement('text', 'clientId', array(
-                'label' => 'Client ID',
-                'readonly' => true,
-                'dimension' => 2,
-            ));
 
-            $this->addElement('text', 'userName', array(
-                'label' => 'Creating user',
-                'readonly' => true,
-                'dimension' => 3,
-            ));
+        $this->addElement('text', 'clientId', array(
+            'label' => 'Client ID',
+            'readonly' => false,
+            'dimension' => 2,
+        ));
 
-            $this->addElement('text', 'createdDate', array(
-                'label' => 'Creation date',
-                'readonly' => true,
-                'dimension' => 2,
-            ));
-        }
+        $this->addElement('text', 'createdDate', array(
+            'label' => 'Creation date',
+            'readonly' => false,
+            'dimension' => 2,
+        ));
+        
 
         // Personal information elements:
 
@@ -409,7 +402,11 @@ class Application_Model_Member_ClientForm extends Twitter_Bootstrap_Form_Horizon
             ));
         }
 
-        $this->addSubForm(new Application_Model_Member_AddrSubForm(null, true, true), 'addr');
+        $this->addSubForm(new Application_Model_Member_AddrSubForm(array(
+            'hasParishField' => true,
+            'readOnly' => false,
+            'zipRequired' => true,
+        )), 'addr');
 
         // Householders sub form:
 
@@ -427,20 +424,20 @@ class Application_Model_Member_ClientForm extends Twitter_Bootstrap_Form_Horizon
 
         // Primary form actions:
 
-        $this->addElement('submit', 'submit', array(
-            'label' => ($id === null) ? 'Create Client' : 'Submit Changes',
-            'decorators' => array('ViewHelper'),
-            'class' => 'btn btn-success',
-        ));
+        //$this->addElement('submit', 'submit', array(
+        //    'label' => ($id === null) ? 'Create Client' : 'Submit Changes',
+        //    'decorators' => array('ViewHelper'),
+        //    'class' => 'btn btn-success',
+        //));
 
         // If necessary, mark all the form elements read only.
-        foreach ($this->getElements() as $element) {
-            if ($element instanceof Zend_Form_Element_Select) {
-                $element->setAttrib('disabled', $readOnly ? true : null);
-            } else {
-                $element->setAttrib('readonly', $readOnly ? true : null);
-            }
-        }
+        //foreach ($this->getElements() as $element) {
+        //    if ($element instanceof Zend_Form_Element_Select) {
+        //        $element->setAttrib('disabled', $readOnly ? true : null);
+        //    } else {
+        //        $element->setAttrib('readonly', $readOnly ? true : null);
+        //    }
+        //}
     }
 
     public function preValidate($data)
@@ -484,7 +481,10 @@ class Application_Model_Member_ClientForm extends Twitter_Bootstrap_Form_Horizon
                ->setWorkPhone(App_Formatting::emptyToNull($this->workPhone->getValue()))
                ->setParish(App_Formatting::emptyToNull($this->parish->getValue()))
                ->setVeteran($this->veteran->isChecked())
-               ->setCurrentAddr($this->addr->getAddr());
+               ->setCurrentAddr($this->addr->getAddr())
+               ->setDoNotHelpReason($this->doNotHelp->isChecked()
+                   ? App_Formatting::emptyToNull($this->doNotHelpReason->getValue())
+                   : null);
 
         $spouse = new Application_Model_Impl_Client();
 
@@ -505,8 +505,7 @@ class Application_Model_Member_ClientForm extends Twitter_Bootstrap_Form_Horizon
             $this->fixedClientDataHash->getValue()
         );
 
-        if (isset($fixedClientData['userId'], $fixedClientData['householdId'],
-                $fixedClientData['createdDate'])) {
+        if ($fixedClientData) {
             $user = new Application_Model_Impl_User();
             $user->setUserId($fixedClientData['userId']);
 
@@ -514,26 +513,10 @@ class Application_Model_Member_ClientForm extends Twitter_Bootstrap_Form_Horizon
                 ->setUser($user)
                 ->setHouseholdId($fixedClientData['householdId'])
                 ->setCreatedDate($fixedClientData['createdDate']);
-        }
 
-        if (isset($fixedClientData['spouseId'])) {
-            $client->getSpouse()->setId($fixedClientData['spouseId']);
-        }
-
-        if ($this->doNotHelp->isChecked()) {
-            $doNotHelp = new Application_Model_Impl_DoNotHelp();
-            $doNotHelp->setReason(App_Formatting::emptyToNull($this->doNotHelpReason->getValue()));
-
-            if (isset($fixedClientData['doNotHelpUserId'], $fixedClientData['doNotHelpDate'])) {
-                $doNotHelpUser = new Application_Model_Impl_User();
-                $doNotHelpUser->setUserId($fixedClientData['doNotHelpUserId']);
-
-                $doNotHelp
-                    ->setUser($doNotHelpUser)
-                    ->setDateAdded($fixedClientData['doNotHelpDate']);
+            if (isset($fixedClientData['spouseId'])) {
+                $client->getSpouse()->setId($fixedClientData['spouseId']);
             }
-
-            $client->setDoNotHelp($doNotHelp);
         }
 
         return $client;
@@ -542,28 +525,19 @@ class Application_Model_Member_ClientForm extends Twitter_Bootstrap_Form_Horizon
     public function setClient($client)
     {
         // Save fixed client IDs and other things that shouldn't be editable.
-        $fixedClientData = array();
-
         if ($client->getUser() !== null) {
-            $fixedClientData['userId']        = $client->getUser()->getUserId();
-            $fixedClientData['householdId']   = $client->getHouseholdId();
-            $fixedClientData['maritalStatus'] = $client->getMaritalStatus();
-            $fixedClientData['createdDate']   = $client->getCreatedDate();
-        }
+            $fixedClientData = array(
+                'userId' => $client->getUser()->getUserId(),
+                'householdId' => $client->getHouseholdId(),
+                'maritalStatus' => $client->getMaritalStatus(),
+                'createdDate' => $client->getCreatedDate(),
+            );
 
-        if ($client->isMarried()) {
-            $fixedClientData['spouseId'] = $client->getSpouse()->getId();
-        }
-
-        if ($client->isDoNotHelp()) {
-            $doNotHelp = $client->getDoNotHelp();
-
-            $fixedClientData['doNotHelpUserId'] = $doNotHelp->getUser()->getUserId();
-            $fixedClientData['doNotHelpDate']   = $doNotHelp->getDateAdded();
-
-            $doNotHelpReason = $doNotHelp->getReason();
+            if ($client->isMarried()) {
+                $fixedClientData['spouseId'] = $client->getSpouse()->getId();
+            }
         } else {
-            $doNotHelpReason = '';
+            $fixedClientData = null;
         }
 
         $safeSerializedFixedClientData = $this->_safeSerializeService->serialize($fixedClientData);
@@ -585,7 +559,7 @@ class Application_Model_Member_ClientForm extends Twitter_Bootstrap_Form_Horizon
         $this->birthDate->setValue(App_Formatting::formatDate($client->getBirthDate()));
         $this->ssn4->setValue($client->getSsn4());
         $this->doNotHelp->setChecked($client->isDoNotHelp());
-        $this->doNotHelpReason->setValue($doNotHelpReason);
+        $this->doNotHelpReason->setValue($client->getDoNotHelpReason());
         $this->veteran->setChecked($client->isVeteran());
         $this->parish->setValue($client->getParish());
         $this->homePhone->setValue($client->getFormattedHomePhone());

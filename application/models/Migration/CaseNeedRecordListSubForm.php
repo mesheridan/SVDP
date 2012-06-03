@@ -1,6 +1,6 @@
 <?php
 
-class Application_Model_Member_CaseNeedRecordListSubForm
+class Application_Model_Migration_CaseNeedRecordListSubForm
     extends App_Form_RecordListSubFormAbstract
 {
 
