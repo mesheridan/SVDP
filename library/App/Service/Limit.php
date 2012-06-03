@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Service class for retrieving totals that allow controller code to flag violations of parish
  * limits on number of cases per client and total monetary needs per case.

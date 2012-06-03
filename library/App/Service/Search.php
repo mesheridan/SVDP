@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Search layer for various actions that perform searches and display a summarized list of
  * clients/cases/check requests. This includes all actions in the search controller, as well as the
@@ -274,6 +273,12 @@ class App_Service_Search
 
     /* Internal helper methods: */
 
+    /**
+     *Constructs a select statment to get client information.
+     *
+     *@param bool flag to order results, default = false
+     *@return Zend_Db_Select
+    */
     private function initClientSelect($noOrder = false)
     {
         $select = $this->_db->select()
@@ -309,11 +314,22 @@ class App_Service_Search
         return $select;
     }
 
+    /**
+     *Orders the columns of a select statment.
+     *
+     *@param Zend_Db_Select without order set
+     *@return Zend_Db_Select with order set
+    */
     private function orderClientSelect(Zend_Db_Select $select)
     {
         return $select->order(array('c.last_name', 'c.first_name', 'c.client_id'));
     }
 
+    /**
+     *Constructs a select statment to get case information.
+     *
+     *@return Zend_Db_Select
+    */
     private function initCaseSelect()
     {
         return $this->_db->select()
@@ -352,6 +368,11 @@ class App_Service_Search
             ->order('s.opened_date DESC', 's.case_id');
     }
 
+    /**
+     *Constructs a select statment to get check request information.
+     *
+     *@return Zend_Db_Select
+    */
     private function initCheckReqSelect()
     {
         return $this->_db->select()
@@ -393,6 +414,14 @@ class App_Service_Search
             ));
     }
 
+    /**
+     *Builds an array of Client objects.
+     *
+     *Creates an array of Client objects, populates it with the data in the given associative array
+     *
+     *@param mixed[]
+     *@return array of Application_Model_Impl_Client
+    */
     private function buildClientModels($dbResults)
     {
         $clients = array();
@@ -431,6 +460,14 @@ class App_Service_Search
         return $clients;
     }
 
+    /**
+     *Builds an array of Case objects.
+     *
+     *Creates an array of Case objects, populates it with the data in the given associative array
+     *
+     *@param mixed[]
+     *@return array of Application_Model_Impl_Case
+    */
     private function buildCaseModels($dbResults)
     {
         $cases = array();
@@ -467,6 +504,14 @@ class App_Service_Search
         return $cases;
     }
 
+    /**
+     *Builds an array of CheckReq objects.
+     *
+     *Creates an array of CheckReq objects, populates it with the data in the given associative array
+     *
+     *@param mixed[]
+     *@return array of Application_Model_Impl_CheckReq
+    */
     private function buildCheckReqModels($dbResults)
     {
         $checkReqs = array();
