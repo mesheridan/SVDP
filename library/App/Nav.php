@@ -26,15 +26,15 @@ class App_Nav
         // Navigation for treasurers.
         App_Roles::TREASURER => array(
             '/treasurer'             => 'Open Check Requests',
-            '/treasurer/updateFunds' => 'Update Available Funds',
+            '/treasurer/updateFunds' => 'Update Total Funds',
             '/search/treasurer'      => 'Search',
             '/report'                => 'Reports',
             '/document/list'         => 'Documents',
         ),
         // Navigation for data migration.
-        App_Roles::DATAMIGRATION => array(
-            'migration' => 'Add Client Info',
-        ),
+        //App_Roles::DATAMIGRATION => array(
+        //    'migration' => 'Add Client Info',
+        //),
     );
 
     /**
