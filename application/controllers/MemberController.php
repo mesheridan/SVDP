@@ -169,7 +169,10 @@ class MemberController extends Zend_Controller_Action
 
         $this->view->users = array();
         $lastRowLetter     = null;
-
+	
+	// remove inactive memebers
+	$users = array_filter($users, function($usr) { return $usr->isActive();} );
+	
         foreach ($users as $userId => $user) {
             $firstName = $user->getFirstName();
 
@@ -381,14 +384,14 @@ class MemberController extends Zend_Controller_Action
 
         // A client is displayed read-only if the user is not a normal member (e.g., if they're a
         // treasurer).
-        $readOnly = ($role === App_Roles::TREASURER);
+        $this->view->readOnly = ($role === App_Roles::TREASURER);
 
         if ($this->_hasParam('id')) {
             // Editing an existing client.
             $id = $this->_getParam('id');
 
-            $this->view->pageTitle = $readOnly ? 'View Client' : 'Edit Client';
-            $this->view->form = new Application_Model_Member_ClientForm($id, $readOnly);
+            $this->view->pageTitle = $this->view->readOnly ? 'View Client' : 'Edit Client';
+            $this->view->form = new Application_Model_Member_ClientForm($id, $this->view->readOnly);
 
             if (!$request->isPost()) {
                 // If the user hasn't submitted the form yet, load client info from the database.
@@ -398,7 +401,7 @@ class MemberController extends Zend_Controller_Action
             }
         } else {
             // Adding a new client.
-            if ($readOnly) {
+            if ($this->view->readOnly) {
                 throw new DomainException('Only members can add new clients');
             }
 
@@ -436,7 +439,7 @@ class MemberController extends Zend_Controller_Action
         }
 
         // Ensure that only members can edit clients.
-        if ($readOnly) {
+        if ($this->view->readOnly) {
             throw new DomainException('Only members can edit existing clients');
         }
 
@@ -728,13 +731,12 @@ class MemberController extends Zend_Controller_Action
 
         // If everyone's kosher with the form, then we can add the check request and redirect back
         // to the case view page.
-        $user = new Application_Model_Impl_User();
-        $user->setUserId(Zend_Auth::getInstance()->getIdentity()->user_id);
+        $userId = Zend_Auth::getInstance()->getIdentity()->user_id;
 
         $checkReq = $this->view->form->getCheckReq();
         $checkReq
             ->setCaseNeedId($needId)
-            ->setUser($user)
+            ->setUserId($userId)
             ->setRequestDate(date('Y-m-d'))
             ->setStatus('P');
 
@@ -905,8 +907,10 @@ class MemberController extends Zend_Controller_Action
                 continue;
             }
 
-            $caseNeedTotal += $need->getAmount();
-            if (!($referralOrCheckReq instanceof Application_Model_Impl_CheckReq)) {
+            if ($referralOrCheckReq instanceof Application_Model_Impl_CheckReq) {
+                $caseNeedTotal += $referralOrCheckReq->getAmount();
+            } else {
+                $caseNeedTotal += $need->getAmount();
                 $caseNeedTotalMinusCheckReqs += $need->getAmount();
             }
         }

@@ -1,6 +1,6 @@
 <?php
 /**
- *Servive file providing the member controller database access.
+ *Service file providing the member controller database access.
  */
 class App_Service_Member
 {
@@ -392,6 +392,7 @@ class App_Service_Member
                                    'cr.checkrequest_id',
                                    'cr.request_date',
                                    'cr.issue_date',
+                                   'check_amount' => 'cr.amount',
                                    'cr.status',
                                ))
                     ->joinLeft(array('r' => 'referral'),
@@ -418,6 +419,7 @@ class App_Service_Member
                 $checkReq
                     ->setId($row['checkrequest_id'])
                     ->setRequestDate($row['request_date'])
+                    ->setAmount($row['check_amount'])
                     ->setIssueDate($row['issue_date'])
                     ->setStatus($row['status']);
                 $need->setReferralOrCheckReq($checkReq);
@@ -1482,7 +1484,7 @@ class App_Service_Member
         $request
             ->setId($results['checkrequest_id'])
             ->setCaseNeedId($results['caseneed_id'])
-            ->setUser($results['user_id'])
+            ->setUserId($results['user_id'])
             ->setRequestDate($results['request_date'])
             ->setAmount($results['amount'])
             ->setComment($results['comment'])
@@ -1688,7 +1690,7 @@ class App_Service_Member
     private function disassembleCheckRequestModel($request){
         return array(
             'caseneed_id' => $request->getCaseNeedId(),
-            'user_id' => $request->getUser()->getUserId(),
+            'user_id' => $request->getUserId(),
             'request_date' => $request->getRequestDate(),
             'amount' => $request->getAmount(),
             'comment' => $request->getComment(),
