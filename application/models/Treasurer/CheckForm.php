@@ -431,7 +431,6 @@ class Application_Model_Treasurer_CheckForm extends Twitter_Bootstrap_Form_Horiz
 	$this->addr->state->setAttrib('readonly', null);
 	$this->addr->zip->setAttrib('readonly', null);
 		    
->>>>>>> 06b71562878a7570fab789afe98cc739ddfd9fd8
     }
     public function setInitialButtons()
     {

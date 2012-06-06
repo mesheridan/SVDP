@@ -73,6 +73,15 @@ class Application_Model_Impl_CheckReq
         return $this;
     }
     
+    public function getUser(){
+        return $this->_user;
+    }
+    
+    public function setUser($user){
+        $this->_user = $user;
+        return $this;
+    }
+    
     public function getUserId(){
         return $this->_userId;
     }
