@@ -17,19 +17,37 @@ class Application_Model_Member_ReferralForm extends Twitter_Bootstrap_Form_Horiz
         'Other' => 'Other',
     );
 
-    public function __construct($caseId, $needId)
+    public function __construct($case, $needId)
     {
+        $needs = $case->getNeeds();
+        $need  = $needs[$needId];
+
         $baseUrl = new Zend_View_Helper_BaseUrl();
 
         parent::__construct(array(
             'action' => $baseUrl->baseUrl(
                 App_Resources::MEMBER
                 . '/newReferral/caseId/'
-                . urlencode($caseId)
+                . urlencode($case->getId())
                 . '/needId/'
                 . urlencode($needId)
             ),
             'method' => 'post',
+        ));
+
+        $this->addElement('text', 'need', array(
+            'label' => 'Need',
+            'value' => $need->getNeed(),
+            'dimension' => 2,
+            'readonly' => true,
+        ));
+
+        $this->addElement('text', 'amount', array(
+            'label' => 'Amount',
+            'value' => App_Formatting::formatCurrency($need->getAmount()),
+            'dimension' => 2,
+            'prepend' => '$',
+            'readonly' => true,
         ));
 
         $this->addElement('text', 'reason', array(
@@ -42,7 +60,7 @@ class Application_Model_Member_ReferralForm extends Twitter_Bootstrap_Form_Horiz
                     'messages' => array('isEmpty' => 'You must enter a referral reason.'),
                 )),
             ),
-            'class' => 'span5',
+            'dimension' => 5,
         ));
 
         $this->addElement('select', 'referredTo', array(
@@ -64,9 +82,9 @@ class Application_Model_Member_ReferralForm extends Twitter_Bootstrap_Form_Horiz
         ));
 
         $this->addDisplayGroup(
-            array('reason', 'referredTo'),
+            array('need', 'amount', 'reason', 'referredTo'),
             'referral',
-            array('legend' => 'Enter a referral for the selected case need.')
+            array('legend' => 'Referral information:')
         );
 
         $this->addElement('submit', 'submit', array(

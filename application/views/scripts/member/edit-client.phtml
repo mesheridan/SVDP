@@ -1,7 +1,12 @@
-<?php $this->headScript()->captureStart(); ?>
+<?php
+if (!$this->readOnly) {
+    $this->headScript()->captureStart();
+?>
 $(function() {
-    initEditClientForm();
+    initClientForm();
 });
-<?php $this->headScript()->captureEnd(); ?>
-<p>Please scroll to the bottom of the page to submit changes.</p>
+<?php
+    $this->headScript()->captureEnd();
+}
+?>
 <?php echo $this->form; ?>

@@ -1,16 +1,17 @@
 <?php
-
+/**
+ * Class implements login functionality include logout, forgot password
+ * and creation of the users inital session
+ */
 class LoginController extends Zend_Controller_Action
 {
-    /**
-     * Time out for users session in minutes
-     * @var int
-     */
-    private $_timeout = 60;
     // Getting user info
     // $identity = Zend_Auth::getInstance()->getIdentity();
     // $identity->user_name;
     // $identity->role;
+    //
+    // $identity will have a value that matches all columns in the database
+    // except for the password which will not be stored
     //
     // Check if identity exists
     // Zend_Auth::getInstance()->hasIdentity();
@@ -125,7 +126,7 @@ class LoginController extends Zend_Controller_Action
             $mail->setBodyHtml('Here is your temporary password. You will be required '
                                . 'to changed it on your next login.' .
                                '<br/><b>' . $password . '</b>');
-            $mail->setFrom('bagura@noctrl.edu', 'System');
+            $mail->setFrom('noreply@raphaelsvdp.org', 'System');
             $mail->addTo( $user->getEmail() );
             $mail->setSubject('SVDP Password Reset');
             $mail->send($transport);
@@ -159,8 +160,8 @@ class LoginController extends Zend_Controller_Action
      * Handles the authentication of a user
      *
      * @usedby LoginController::processAction()
-     * @param string $userid
-     * @param string $password
+     * @param string $userid The ID that the user is trying to log in as
+     * @param string $password The password the user provided to log in
      * @return void
      */
     protected function authenticate($userid, $password)
@@ -190,7 +191,8 @@ class LoginController extends Zend_Controller_Action
         
         // Set the time out length
         $authSession = new Zend_Session_Namespace('Zend_Auth');
-        $authSession->setExpirationSeconds($this->_timeout * 60);
+        $authSession->setExpirationSeconds(Zend_Registry::Get('timeout'));
+
         
         $this->forwardUser();
     }
@@ -274,6 +276,9 @@ class LoginController extends Zend_Controller_Action
                 break;
             case App_Roles::TREASURER:
                 $this->_helper->redirector('index',App_Resources::TREASURER);
+                break;
+            case App_Roles::DATAMIGRATION:
+                $this->_helper->redirector('index',App_Resources::MIGRATION);
                 break;
             default:
                 return;

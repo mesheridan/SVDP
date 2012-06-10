@@ -1,7 +1,14 @@
 <?php
+/**
+ * Class represents a form which is used to modify a particular users data
+ */
 class Application_Model_Admin_ModifyUserForm extends Twitter_Bootstrap_Form_Vertical
 {
-	
+	/**
+	 * Default constructor to the form
+	 *
+	 * @return null
+	 */
 	public function __construct($options = null){
 		parent::__construct($options);
 		$this->setName('modify');
@@ -39,35 +46,67 @@ class Application_Model_Admin_ModifyUserForm extends Twitter_Bootstrap_Form_Vert
 		));
 		
 		// Read only user first name
-               $firstname = $this->addElement('text', 'firstname', array(
+		$firstname = $this->addElement('text', 'firstname', array(
 			'filters'    => array('StringTrim'),
 			'required'   => true,
 			'label'      => 'First Name:',
 			'readonly'   => true,
+			'validators' => array(
+				array('NotEmpty', true, array(
+				    'type' => 'string',
+				    'messages' => array('isEmpty' => 'You must enter a first name.'),
+				)),
+				array('StringLength', true, array(
+				    'max' => 30,
+				    'messages' => array(
+					'stringLengthTooLong' => 'First name must be shorter than 30 characters.',
+				    ),
+				)),),
                ));
 	       
-               // Read only user last name
-               $lastname = $this->addElement('text', 'lastname', array(
+	    $lastname = $this->addElement('text', 'lastname', array(
 			'filters'    => array('StringTrim'),
 			'required'   => true,
 			'label'      => 'Last Name:',
-               ));
+			'validators' => array(
+				array('NotEmpty', true, array(
+				    'type' => 'string',
+				    'messages' => array('isEmpty' => 'You must enter a last name.'),
+				)),
+				array('StringLength', true, array(
+				    'max' => 30,
+				    'messages' => array(
+					'stringLengthTooLong' => 'Last name must be shorter than 30 characters.',
+				    ),
+				)),),
+	    ));
         
 		// User e-mail
-               $email = $this->addElement('text', 'email', array(
+	    $email = $this->addElement('text', 'email', array(
 			'filters'    => array('StringTrim'),
 			'validators' => array('EmailAddress'),
 			'required'   => true,
 			'label'      => 'Email:',
-               ));
+			'validators' => array(
+				array('NotEmpty', true, array(
+				    'type' => 'string',
+				    'messages' => array('isEmpty' => 'Email must be provided'),
+				)),
+				array('StringLength', true, array(
+				    'max' => 1000,
+				    'messages' => array(
+					'stringLengthTooLong' => 'Email must be shorter than 100 characters.',
+				    ),
+				)),),
+	    ));
                
-               // User cell phone
-               $cell = $this->addElement('text', 'cell', array(
-                   'required'   => false,
-		   'filters'    => array('Digits'),
-                   'label'      => 'Cell Phone:',
-		   'class'      => 'phone',
-		   'validators' => array(
+	    // User cell phone
+	    $cell = $this->addElement('text', 'cell', array(
+		    'required'   => false,
+		    'filters'    => array('Digits'),
+		    'label'      => 'Cell Phone:',
+		    'class'      => 'phone',
+		    'validators' => array(
 			array('StringLength', true, array(
 				'min' => 10,
 				'max' => 10,
@@ -77,13 +116,13 @@ class Application_Model_Admin_ModifyUserForm extends Twitter_Bootstrap_Form_Vert
                     )))),
                ));
                
-               // User home phone
-               $home = $this->addElement('text', 'home', array(
-                   'required'   => false,
-		   'filters'    => array('Digits'),
-                   'label'      => 'Home Phone:',
-		   'class'      => 'phone',
-		   'validators' => array(
+	    // User home phone
+	    $home = $this->addElement('text', 'home', array(
+			'required'   => false,
+		    'filters'    => array('Digits'),
+		    'label'      => 'Home Phone:',
+		    'class'      => 'phone',
+		    'validators' => array(
 			array('StringLength', true, array(
 				'min' => 10,
 				'max' => 10,
@@ -93,28 +132,33 @@ class Application_Model_Admin_ModifyUserForm extends Twitter_Bootstrap_Form_Vert
                     )))),
                ));
                
-               // Users role
-               $role = $this->addElement('select','role',array(
+	    // Users role
+	    $role = $this->addElement('select','role',array(
 			'label' => 'Role:',
-			'multiOptions' => array ( App_Roles::MEMBER      => 'Member',
-						  App_Roles::TREASURER   => 'Treasurer',
-						  App_Roles::ADMIN       => 'Admin',)
+			'multiOptions' => array ( App_Roles::MEMBER        => 'Member',
+						  App_Roles::TREASURER     => 'Treasurer',
+						  App_Roles::ADMIN         => 'Admin',
+						  App_Roles::DATAMIGRATION => 'Data Migrator',)
 			,));
+	    // Used to indicate errors on role
+	    $roleErr = $this->addElement('hidden','roleErr', array(
+			'ignore'   => true,
+			'required' => false,
+			));
                
-               // Users status
-               $status = $this->addElement('select','status',array(
+	    // Users status
+	    $status = $this->addElement('select','status',array(
 			'label' => 'Status:',
 			'multiOptions' => array ( '1'   => 'Active',
-						  '0'   => 'Inactive',)
-			,
+									  '0'   => 'Inactive',),
 			'class'      => 'input-medium',));
                
-               $submit = $this->addElement('submit', 'submit', array(
-                   'required' => false,
-                   'ignore'   => true,
-		   'label'    => 'Submit Changes',
-                   'class'    => 'btn btn-success',
-		   'decorators' => array('ViewHelper'),
-                ));
+	    $submit = $this->addElement('submit', 'submit', array(
+		    'required' => false,
+		    'ignore'   => true,
+		    'label'    => 'Submit',
+		    'class'    => 'btn btn-success',
+		    'decorators' => array('ViewHelper'),
+		));
 	}
 }

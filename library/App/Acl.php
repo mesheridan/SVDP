@@ -1,14 +1,24 @@
 <?php
 
 /**
- Class implements the ACL rules.
-
- All pages are initially blocked unless granted
- access via the setAccess methods.
-*/
+ * Class implements the Access Control List (ACL) rules.
+ *
+ * All pages are initially blocked unless granted access via the setAccess methods
+ * 
+ * WARNING: ALL CONTROLS IN THE APPLICATION MUST BE ADDED AS A RESOURCE. View the
+ * create resources to see how this is done.
+ *
+ * Examples how to set access rules
+ * $this->(App_Roles::MEMBER,null,index); // Grants member access to index on all controllers
+ * $this->(App_Roles::ADMIN,null,array('index','process')); // Grants admin access to all index and process actions
+ * $this->(App_Roles::TREASURER,myControl); // Grants treasurer access to all actions in myControl.
+ * $this->(App_Roles::TREASURER,myControl,array('index','process')); // Grants treasurer Access to index and process in myControl
+ */
 class App_Acl extends Zend_Acl
 {
-
+    /**
+     * Default constructore for the ACL rules
+     */
     public function __construct()
     {
         $this->createResources();
@@ -19,13 +29,17 @@ class App_Acl extends Zend_Acl
         $this->setMemberAccess();
         $this->setTreasurerAccess();
         $this->setAdminAccess();
+        $this->setDataMigrationAccess();
     }
 
-    // Registers the resources with the ACL.
-    // Resoruces are simply the string name of a specific controller
+    /**
+	 * Registers a controller as a resource.
+	 *
+	 * @return null
+	 */
     protected function createResources()
     {
-        // Specify resources
+        // Specify resources and add them to 'this'
         $this->add(new Zend_Acl_Resource(App_Resources::ADMIN));
         $this->add(new Zend_Acl_Resource(App_Resources::ERROR));
         $this->add(new Zend_Acl_Resource(App_Resources::INDEX));
@@ -36,9 +50,15 @@ class App_Acl extends Zend_Acl
         $this->add(new Zend_Acl_Resource(App_Resources::REPORT));
         $this->add(new Zend_Acl_Resource(App_Resources::DOCUMENT));
         $this->add(new Zend_Acl_Resource(App_Resources::REDIRECT));
+        $this->add(new Zend_Acl_Resource(App_Resources::MIGRATION));
     }
 
-    // Create the various roles
+    /**
+	 * Creates the different roles which will be used to determine access restrictions.
+	 * Users that are not logged in have no role (null)
+	 *
+	 * @return null
+	 */
     protected function createRoles()
     {
         // Create the general role which will be inherited by all
@@ -49,13 +69,16 @@ class App_Acl extends Zend_Acl
         $this->addRole(new Zend_Acl_Role(App_Roles::TREASURER),App_Roles::GENERAL);
         // Admin roles
         $this->addRole(new Zend_Acl_Role(App_Roles::ADMIN),App_Roles::GENERAL);
+        // Create Migration Role
+        $this->addRole(new Zend_Acl_Role(App_Roles::DATAMIGRATION),App_Roles::GENERAL);
     }
 
-    // Add access to controls here.
-    // $this->(App_Roles::MEMBER,null,index); // Grants member access to index on all controllers
-    // $this->(App_Roles::ADMIN,null,array('index','process')); // Grants admin access to all index and process actions
-    // $this->(App_Roles::TREASURER,myControl); // Grants treasurer access to all actions in myControl.
-    // $this->(App_Roles::TREASURER,myControl,array('index','process')); Access to index and process in myControl
+	/**
+	 * Sets the access for the GENERAL role. This role defines access that is
+	 * granted to all roles except users who are not logged in.
+	 *
+	 * @return null
+	 */
     protected function setGeneralAccess()
     {
         // Allow access to all actions in the index, login, error, and redirect controllers
@@ -63,8 +86,14 @@ class App_Acl extends Zend_Acl
         $this->allow(App_Roles::GENERAL,App_Resources::INDEX);
         $this->allow(App_Roles::GENERAL,App_Resources::ERROR);
         $this->allow(App_Roles::GENERAL,App_Resources::REDIRECT);
+        // All logged in users have access to listing and displaying documents
+        $this->allow(App_Roles::GENERAL,App_Resources::DOCUMENT,array('display','list'));
     }
-
+	/**
+	 * Sets the access for the MEMBER role.
+	 *
+	 * @return null
+	 */
     protected function setMemberAccess()
     {
         // Allow access to all actions in member controller
@@ -75,13 +104,15 @@ class App_Acl extends Zend_Acl
             App_Resources::MEMBER,
         ));
         // Allow access to check request view action in the treasurer controller
-        $this->allow(App_Roles::MEMBER,App_Resources::TREASURER,'checkReq');
+        $this->allow(App_Roles::MEMBER,App_Resources::TREASURER,'view');
         // Allow access to all actions in the reports controller
         $this->allow(App_Roles::MEMBER,App_Resources::REPORT);
-        // Allow access to list action in document controller
-        $this->allow(App_Roles::MEMBER,App_Resources::DOCUMENT,'list');
     }
-
+	/**
+	 * Sets the access for the TREASURER role.
+	 *
+	 * @return null
+	 */
     protected function setTreasurerAccess()
     {
         // Allow access to all actions in the treasurer controller
@@ -92,18 +123,35 @@ class App_Acl extends Zend_Acl
             App_Resources::TREASURER,
         ));
         // Allow access to client and case view actions in the member controller
-        $this->allow(App_Roles::TREASURER,App_Resources::MEMBER,array('viewClient','viewCase'));
+        $this->allow(App_Roles::TREASURER,App_Resources::MEMBER,array(
+            'viewClient',
+            'editClient',
+            'clientHistory',
+            'viewCase',
+        ));
         // Allow access to all actions in the reports controller
         $this->allow(App_Roles::TREASURER,App_Resources::REPORT);
-        // Allow access to list action in document controller
-        $this->allow(App_Roles::TREASURER,App_Resources::DOCUMENT,'list');
     }
-
+	/**
+	 * Sets the access for the ADMIN role.
+	 *
+	 * @return null
+	 */
     protected function setAdminAccess()
     {
         // Allow access to all actions in admin controller
         $this->allow(App_Roles::ADMIN,App_Resources::ADMIN);
         // Allow access to all actions in document controller
         $this->allow(App_Roles::ADMIN,App_Resources::DOCUMENT);
+    }
+    	/**
+	 * Sets the access for the DATA MIGRATION role
+	 *
+	 * @return null
+	 */
+    protected function setDataMigrationAccess()
+    {
+        // Allow access to migration controller
+        $this->allow(App_Roles::DATAMIGRATION,App_Resources::MIGRATION);
     }
 }

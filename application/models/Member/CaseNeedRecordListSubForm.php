@@ -37,7 +37,14 @@ class Application_Model_Member_CaseNeedRecordListSubForm
 
     private $_showStatus;
 
-    public function __construct($readOnly = false, $caseId = null)
+    /**
+     * `true` if a limit violation has occurred, otherwise `false`.
+     *
+     * @var bool
+     */
+    private $_limitViolation;
+
+    public function __construct($showSubmitChanges = false, $readOnly = false, $caseId = null)
     {
         $this->_readOnly   = $readOnly;
         $this->_caseId     = $caseId;
@@ -47,7 +54,7 @@ class Application_Model_Member_CaseNeedRecordListSubForm
                 ? array('Status', 'Need', 'Amount', '')
                 : array('Need', 'Amount');
 
-        parent::__construct(array(
+        $options = array(
             'namespace' => 'caseneed',
             'labels' => $labels,
             'readOnly' => $readOnly,
@@ -55,20 +62,38 @@ class Application_Model_Member_CaseNeedRecordListSubForm
             'legend' => 'Case needs:',
             'addRecordMsg' => 'Add Another Need',
             'noRecordsMsg' => 'No needs listed.',
-            'submitMsg' => 'Submit Changes',
-        ));
+        );
+
+        if ($showSubmitChanges) {
+            $options['submitMsg'] = 'Submit';
+        } else {
+            $options['dirtyMsg'] = '';
+        }
+
+        parent::__construct($options);
     }
 
     public function setDefaults(array $defaults)
     {
         parent::setDefaults($defaults);
 
-        foreach ($this->caseneedRecords->getSubForms() as $caseNeedSubForm) {
-            $caseNeedSubForm->statusNote->setValue($caseNeedSubForm->status->getValue());
-            $caseNeedSubForm->status2Note->setValue($caseNeedSubForm->status2->getValue());
+        if ($this->_showStatus) {
+            foreach ($this->caseneedRecords->getSubForms() as $caseNeedSubForm) {
+                $caseNeedSubForm->statusNote->setValue($caseNeedSubForm->status->getValue());
+                $caseNeedSubForm->status2Note->setValue($caseNeedSubForm->status2->getValue());
+            }
         }
 
         return $this;
+    }
+
+    public function isValid($data)
+    {
+        foreach ($this->_recordsSubForm->getSubForms() as $caseNeedSubForm) {
+            $caseNeedSubForm->amount->addFilter('LocalizedToNormalized');
+        }
+
+        return parent::isValid($data);
     }
 
     protected function initSubForm($caseNeedSubForm)
@@ -113,13 +138,14 @@ class Application_Model_Member_CaseNeedRecordListSubForm
                 )),
             ),
             'decorators' => array(
+                'FieldSize',
                 'ViewHelper',
                 'Addon',
                 'ElementErrors',
                 'Wrapper',
                 array('HtmlTag', array('tag' => 'td', 'closeOnly' => true)),
             ),
-            'class' => 'span3',
+            'dimension' => 3,
         ));
 
         $caseNeedSubForm->addElement('text', 'amount', array(
@@ -135,11 +161,11 @@ class Application_Model_Member_CaseNeedRecordListSubForm
                 )),
                 array('GreaterThan', true, array(
                     'min' => 0,
-                    'messages' => array('notGreaterThan' => 'Must not be negative.'),
+                    'messages' => array('notGreaterThan' => 'Must be positive.'),
                 )),
             ),
             'maxlength' => 10,
-            'class' => 'span2',
+            'dimension' => 2,
             'prepend' => '$',
         ));
 
@@ -175,11 +201,35 @@ class Application_Model_Member_CaseNeedRecordListSubForm
     {
         $caseNeedSubForm->id->setValue($caseNeed->getId());
         $caseNeedSubForm->need->setValue($caseNeed->getNeed());
-        $caseNeedSubForm->amount->setValue($caseNeed->getAmount());
+        $caseNeedSubForm->amount->setValue(App_Formatting::formatCurrency($caseNeed->getAmount()));
 
         if ($this->_showStatus) {
             $this->updateStatus($caseNeedSubForm, $caseNeed);
         }
+    }
+
+    /**
+     * Returns `true` if the limit violation flag is set, otherwise returns `false`.
+     *
+     * @return bool
+     */
+    public function isLimitViolation()
+    {
+        return $this->_limitViolation;
+    }
+
+    /**
+     * Sets a flag determining whether or not a limit violation has occurred. If the flag is set,
+     * the next form submission will bypass the limit check, allowing case creation anyway.
+     *
+     * @param bool $limitViolation
+     * @return self
+     */
+    public function setLimitViolation($limitViolation)
+    {
+        $this->_limitViolation = $limitViolation;
+        $this->setSubmitDanger($limitViolation);
+        return $this;
     }
 
     private function updateStatus($caseNeedSubForm, $caseNeed)
@@ -194,29 +244,46 @@ class Application_Model_Member_CaseNeedRecordListSubForm
             $referral = $referralOrCheckReq;
 
             $status  = '<span class="label label-info">Referred</span>';
-            $status2 = 'Referral: '
+            $status2 = '<abbr title="'
+                     . htmlspecialchars($referral->getReason())
+                     . '">'
+                     . 'Referral: '
                      . htmlspecialchars($referral->getReferredTo())
                      . ' ('
                      . htmlspecialchars(App_Formatting::formatDate($referral->getDate()))
-                     . ')';
+                     . ')'
+                     . '</abbr>';
         } else if ($referralOrCheckReq instanceof Application_Model_Impl_CheckReq) {
             $this->setSubFormReadOnly($caseNeedSubForm, true);
 
             $checkReq        = $referralOrCheckReq;
-            $viewCheckReqUrl = $baseUrl->baseUrl(App_Resources::TREASURER . '/checkReq/id/'
+            $viewCheckReqUrl = $baseUrl->baseUrl(App_Resources::TREASURER . '/view/id/'
                 . urlencode($checkReq->getId()));
 
             $status2 = '<a href="' . htmlspecialchars($viewCheckReqUrl) . '">';
 
-            if ($checkReq->getIssueDate() !== null) {
-                $status   = '<span class="label label-success">Issued check</span>';
+            switch ($checkReq->getStatus()) {
+            case 'I':
+                $status   = '<span class="label label-success">Issued</span>';
                 $status2 .= 'Issued: '
                           . htmlspecialchars(App_Formatting::formatDate($checkReq->getIssueDate()));
-            } else {
-                $status   = '<span class="label label-warning">Pending check</span>';
+                break;
+
+            case 'D':
+                $status   = '<span class="label label-important">Denied</span>';
+                $status2 .= 'Denied';
+                if ($checkReq->getIssueDate() !== null) {
+                    $status2 .= ': '
+                              . htmlspecialchars(App_Formatting::formatDate(
+                                  $checkReq->getIssueDate()));
+                }
+                break;
+
+            default:
+                $status   = '<span class="label label-warning">Pending</span>';
                 $status2 .= 'Requested: '
                           . htmlspecialchars(App_Formatting::formatDate(
-                                             $checkReq->getRequestDate()));
+                              $checkReq->getRequestDate()));
             }
 
             $status2 .= '</a>';
@@ -234,17 +301,19 @@ class Application_Model_Member_CaseNeedRecordListSubForm
                 . urlencode($this->_caseId)
                 . '/needId/'
                 . urlencode($caseNeed->getId())
-                . '/amount/'
-                . urlencode($caseNeed->getAmount())
             );
 
-            $status  = '<span class="label label-important">Unprocessed</span>';
-            $status2 = '<a href="'
-                     . htmlspecialchars($newReferralUrl)
-                     . '" class="btn btn-info">Referral</a>'
-                     . ' <a href="'
-                     . htmlspecialchars($newCheckReqUrl)
-                     . '" class="btn btn-info">Check Req.</a>';
+            $status  = '<span class="label label-important">Added</span>';
+            if (!$this->_readOnly) {
+                $status2 = '<a href="'
+                         . htmlspecialchars($newReferralUrl)
+                         . '" class="btn btn-info">Referral</a>'
+                         . ' <a href="'
+                         . htmlspecialchars($newCheckReqUrl)
+                         . '" class="btn btn-info">Req. Check</a>';
+            } else {
+                $status2 = '';
+            }
         }
 
         $caseNeedSubForm->status->setValue($status);

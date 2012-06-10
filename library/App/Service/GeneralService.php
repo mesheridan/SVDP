@@ -1,14 +1,33 @@
 <?php
-
+/**
+ *Service file providing database queries that many controllers need.
+ */
 class App_Service_GeneralService {
+    /**
+     *Database adapter for service methods.
+     *
+     * @var Zend_Db_Adapter_Abstract
+    */
     private $_db;
     
-    function __construct(){
+    /**
+     *Creates a connection to the DB available to the class.
+     *
+     *@return void
+    */
+    function __construct()
+    {
         $this->_db = Zend_Db_Table::getDefaultAdapter();
     }
     
-    //Returns an array of populated ScheduleEntry objects representing the schedule entries in the
-    //database, ordering them by start_date
+    /**
+     *Gets schedule information from database.
+     *
+     *Returns an array of populated ScheduleEntry objects representing the schedule entries in the
+     *database, ordering them by start_date.
+     *
+     *@return array of Application_Model_Impl_SheduleEntry
+    */
     public function getScheduleEntries()
     {
         $select = $this->_db->select()
@@ -24,6 +43,45 @@ class App_Service_GeneralService {
         return $this->buildScheduleEntryModels($results);
     }
     
+    /**
+     *Returns the number of pending check requests.
+     *
+     *@return int number of pending check requests
+    */
+    public function getNumPendingCheckRequests()
+    {
+        $select = $this->_db->select()
+                ->from('check_request',
+                       array('totalReqs' => 'COUNT(*)'))
+                ->where("status = 'P'");
+        $results = $this->_db->fetchRow($select);
+        return $results['totalReqs'];
+    }
+    
+    /**
+     *Returns the total amount of the pending check requests.
+     *
+     *@return int total amount of the pending check requests
+    */
+    public function getPendingCheckRequestsAmount()
+    {
+        $select = $this->_db->select()
+                ->from('check_request',
+                       array('totalAmount' => 'SUM(amount)'))
+                ->where("status = 'P'");
+        $results = $this->_db->fetchRow($select);
+        return $results['totalAmount'];
+    }
+    
+    /**
+     *Builds a ScheduleEntry object.
+     *
+     *Creates a ScheduleEntry object, populates it with the data in the given associative array
+     *, and returns the object
+     *
+     *@param mixed[string]
+     *@return Application_Model_Impl_SheduleEntry
+    */
     private function buildScheduleEntryModels($dbResults)
     {
         $scheduleEntries = array();
